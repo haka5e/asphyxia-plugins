@@ -1,21 +1,30 @@
 # Pop'n Music
 
-Plugin Version: **v3.0.0**
+Plugin Version: **v4.2.0**
 
 ## Supported Versions
-- pop'n music 19 Tune Street
-- pop'n music 20 fantasia
-- pop'n music Sunny Park
-- pop'n music Lapistoria
-- pop'n music éclale
-- pop'n music Usagi to Neko to Shōnen no Yume
-- pop'n music peace
-- pop'n music Kaimei riddles
-- pop'n music Unilab
+- pop'n music 19 Tune Street (Not tested)
+- pop'n music 20 fantasia (Not tested)
+- pop'n music Sunny Park (Not tested)
+- pop'n music Lapistoria (Not tested)
+- pop'n music éclale (Not tested)
+- pop'n music Usagi to Neko to Shōnen no Yume (Not tested)
+- pop'n music peace (Not tested)
+- pop'n music Kaimei riddles (Not tested)
+- pop'n music Unilab (Not tested)
+- pop'n music Jam&Fizz (Not tested)
+- pop'n music High Cheers
 
-Important : require minimum Asphyxia Core **v1.31**
+High Cheers support is tested with Asphyxia CORE **v1.60b**. Older game
+versions require Asphyxia CORE **v1.31** or later.
 
 ## Changelog
+
+### 4.2.0
+* High Cheers: add profile, score, option, customization, event support.
+
+### 4.1.0
+* Jam&Fizz: Support added
 
 ### 4.0.0
 * Unilab: Support added
@@ -67,3 +76,4 @@ Initial Release.
 ## Known limitations
 * No rival support for Tune Street
 * Some stats are not implemented
+* High Cheers online and local-matching-specific features are not implemented

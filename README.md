@@ -1,26 +1,41 @@
 # Asphyxia CORE Community Plugins
 
-These plugins are provided by community members and considered officially supported by Team Asphyxia.
+This repository is a community-plugin fork for
+[Asphyxia CORE](https://asphyxia-core.github.io/). It currently adds
+`popn@asphyxia` compatibility for pop'n music High Cheers while retaining the
+other upstream community plugins.
 
-## How to use it?
+## Installation
 
-0. Make sure you have [Asphyxia CORE](https://asphyxia-core.github.io/) installed.
-1. Go to [Releases](https://github.com/asphyxia-core/plugins/releases) page.
-2. Download the latest source code.
-3. Extract the code in Asphyxia CORE's `plugins` folder.
+1. Install Asphyxia CORE. High Cheers support is tested with **CORE v1.60b**.
+2. Download the latest package from this repository's
+   [Releases page](https://github.com/haka5e/asphyxia-plugins/releases).
+3. Copy the plugin directory you need into Asphyxia CORE's `plugins` directory.
+   For pop'n music, copy the complete `popn@asphyxia` directory.
+4. Restart CORE and confirm that the plugin appears in the WebUI.
 
-## How do I contribute?
+Do not copy `savedata`, `config.ini`, databases, or machine-specific files into
+a release. They may contain player data or local configuration and are not
+required by the plugin.
 
-I don't actually follow any coding rules for this jank so neither should you. There is, however, a prettier configuration if you want to format the code automatically and forget about it.
+## pop'n music compatibility
 
-I'll do my best to merge PR, but please make sure you are submitting code targeted for "public" releases. (Unless it is some ancient rare stuff and you feel generous enough to provide support for it)
+See [`popn@asphyxia/README.md`](popn@asphyxia/README.md) for supported game
+versions, requirements, changes, and known limitations.
 
-- For new plugins: please use `@asphyxia` identifier for your plugin since you are submitting code as the community.
-  - This way we prevent third-party plugins (e.g. `popn` or `popn@someoneelse`) from conflicting with our database.
-- For existing plugins: please inlude a changelog in your PR so it is easier for me to tell what it is for.
+## Development checks
 
-## How do I make plugins?
+Install the development dependencies in an Asphyxia CORE plugin workspace and
+run:
 
-Checkout our [Documentation](https://asphyxia-core.github.io/typedoc/) and maybe consider join our [Discord](https://discord.gg/3TW3BDm) server. Make sure to familiar yourself with at least XML and Typescript/Javascript.
+```shell
+npm run typecheck
+```
 
-Note that you should run `npm install` to install typing for node and lodash, and launch CORE using `--dev` arguments to enable console log and typechecking when using typescript.
+Launch CORE with `--dev` to enable plugin type checking and diagnostic output.
+
+## Upstream
+
+The original community plugin collection is maintained at
+[asphyxia-core/plugins](https://github.com/asphyxia-core/plugins). Please keep
+upstream attribution when redistributing derived plugins.

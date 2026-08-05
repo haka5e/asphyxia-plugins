@@ -2,7 +2,6 @@ export interface Achievements {
   collection: 'achievements',
   version: string,
 }
-
 export interface AchievementsTuneStreet extends Achievements {
   version: 'v19',
 
@@ -65,7 +64,7 @@ export interface AchievementsEclale extends Achievements {
 }
 
 export interface AchievementsUsaneko extends Achievements {
-  version: 'v24' | 'v25' | 'v26',
+  version: 'v24' | 'v25' | 'v26' | 'v27' | 'v28' | 'v29',
 
   areas: {
     [id: string]: {
@@ -124,7 +123,12 @@ export interface AchievementsUsaneko extends Achievements {
   };
 
   team: Team[];
-  battery: Battery[]
+  battery: Battery[];
+  order: Order[];
+  neon_lamp: NeonNeko[];
+  neko_stamp: NeonNeko[];
+  basket_id: number;
+  baskets: Basket[];
 }
 
 interface Team {
@@ -137,5 +141,24 @@ interface Team {
 interface Battery {
   battery_id: number;
   energy: number;
+  is_cleared: boolean;
+}
+
+interface Order {
+  id: number;
+  point: number;
+  patties: number[];
+  is_cleared: boolean;
+}
+
+interface NeonNeko {
+  id: number;
+  point: number;
+  is_cleared: boolean;
+}
+
+interface Basket {
+  id: number;
+  point: number;
   is_cleared: boolean;
 }

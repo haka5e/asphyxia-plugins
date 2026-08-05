@@ -4,14 +4,24 @@ import * as utils from "./utils";
 
 export const setRoutes = () => {
     R.Route(`info24.common`, getInfo);
+    R.Route(`info.common`, getInfo);
     R.Route(`player24.new`, newPlayer);
+    R.Route(`player.new`, newPlayer);
     R.Route(`player24.read`, read);
+    R.Route(`player.read`, read);
     R.Route(`player24.start`, start);
+    R.Route(`player.start`, start);
     R.Route(`player24.buy`, buy);
+    R.Route(`player.buy`, buy);
     R.Route(`player24.read_score`, readScore);
+    R.Route(`player.read_score`, readScore);
+    R.Route(`player.read_option`, readOption);
     R.Route(`player24.write_music`, writeScore);
+    R.Route(`player.write_music`, writeScore);
     R.Route(`player24.write`, write);
+    R.Route(`player.write`, write);
     R.Route(`player24.friend`, friend);
+    R.Route(`player.friend`, friend);
 }
 
 /**
@@ -163,6 +173,47 @@ const readScore = async (req: EamuseInfo, data: any, send: EamuseSend): Promise<
 };
 
 /**
+ * High Cheers requests the saved play options for the selected chart before
+ * entering a game. Returning CORE's empty success response resets them.
+ */
+const readOption = async (req: EamuseInfo, data: any, send: EamuseSend): Promise<any> => {
+    const refid = $(data).str('ref_id');
+    if (!refid) return send.deny();
+
+    const version = getVersion(req);
+    const music = $(data).number('music_num');
+    const sheet = $(data).number('sheet_num');
+    const scores = await utils.readScores(refid, version, true);
+    const params = await utils.readParams(refid, version);
+    const options = scores.scores[`${music}:${sheet}`]?.options || params.params;
+    const value = (name: string, fallback: number) => options[name] ?? fallback;
+
+    return send.object({
+        hispeed: K.ITEM('s16', value('hispeed', 10)),
+        popkun: K.ITEM('u8', value('popkun', 0)),
+        hidden: K.ITEM('bool', value('hidden', 0)),
+        hidden_rate: K.ITEM('s16', value('hidden_rate', -1)),
+        sudden: K.ITEM('bool', value('sudden', 0)),
+        sudden_rate: K.ITEM('s16', value('sudden_rate', -1)),
+        randmir: K.ITEM('s8', value('randmir', 0)),
+        gauge_type: K.ITEM('s8', value('gauge_type', 0)),
+        ojama_0: K.ITEM('u8', value('ojama_0', 0)),
+        ojama_1: K.ITEM('u8', value('ojama_1', 0)),
+        forever_0: K.ITEM('bool', value('forever_0', 0)),
+        forever_1: K.ITEM('bool', value('forever_1', 0)),
+        full_setting: K.ITEM('bool', value('full_setting', 1)),
+        guide_se: K.ITEM('s8', value('guide_se', 0)),
+        guide_se_vol: K.ITEM('u8', value('guide_se_vol', 3)),
+        lift: K.ITEM('bool', value('lift', 0)),
+        lift_rate: K.ITEM('s16', value('lift_rate', 0)),
+        judge_ad: K.ITEM('s8', value('judge_ad', 0)),
+        roof: K.ITEM('s16', value('roof', 0)),
+        long_pop: K.ITEM('s8', value('long_pop', 1)),
+        judge: K.ITEM('u8', value('judge', 1)),
+    });
+};
+
+/**
  * Read the user scores and format them (profile/friend)
  * @param refid ID of the user
  * @param forFriend If true, format the output for friend request.
@@ -206,14 +257,38 @@ const getScores = async (refid: string, version: string, forFriend: boolean = fa
                 clearrank: getRank(score.score).toString()
             }));
         } else {
-            result.push({
+            const musicData: any = {
                 music_num: K.ITEM('s16', music),
                 sheet_num: K.ITEM('u8', sheet),
                 score: K.ITEM('s32', score.score),
                 clear_type: K.ITEM('u8', clearType),
-                clear_rank: K.ITEM('u8', getRank(score.score)),
+                clear_rank: K.ITEM('u8', version == 'v29' && score.clear_rank !== undefined ? score.clear_rank : getRank(score.score)),
                 cnt: K.ITEM('s16', score.cnt),
-            });
+            };
+            if (version == 'v29') {
+                const opts = score.options || {};
+                Object.assign(musicData, {
+                    cool: K.ITEM('s16', score.cool || 0),
+                    great: K.ITEM('s16', score.great || 0),
+                    good: K.ITEM('s16', score.good || 0),
+                    bad: K.ITEM('s16', score.bad || 0),
+                    combo: K.ITEM('s16', score.combo || 0),
+                    highlight: K.ITEM('s16', score.highlight || 0),
+                    gauge: K.ITEM('s16', score.gauge || 0),
+                    gauge_type: K.ITEM('s8', score.gauge_type || 0),
+                    slow: K.ITEM('s16', score.slow || 0),
+                    fast: K.ITEM('s16', score.fast || 0),
+                    ex_gauge_lv: K.ITEM('s8', score.ex_gauge_lv || -1),
+                    hidden: K.ITEM('bool', opts.hidden || 0),
+                    hidden_rate: K.ITEM('s16', opts.hidden_rate || -1),
+                    sudden: K.ITEM('bool', opts.sudden || 0),
+                    sudden_rate: K.ITEM('s16', opts.sudden_rate || -1),
+                    hispeed: K.ITEM('s16', opts.hispeed || 10),
+                    lift: K.ITEM('bool', opts.lift || 0),
+                    lift_rate: K.ITEM('s16', opts.lift_rate || 0),
+                });
+            }
+            result.push(musicData);
         }
     }
 
@@ -266,6 +341,38 @@ const writeScore = async (req: EamuseInfo, data: any, send: EamuseSend): Promise
         11: 1100,
     }[$(data).number('clear_type')];
     const score = $(data).number('score');
+    const isOptionSave = $(data).bool('is_option_save');
+    const options = {
+        hispeed: $(data).number('hispeed'),
+        popkun: $(data).number('popkun'),
+        hidden: $(data).bool('hidden') ? 1 : 0,
+        hidden_rate: $(data).number('hidden_rate'),
+        sudden: $(data).bool('sudden') ? 1 : 0,
+        sudden_rate: $(data).number('sudden_rate'),
+        randmir: $(data).number('randmir'),
+        gauge_type: $(data).number('gauge_type'),
+        lift: $(data).bool('lift') ? 1 : 0,
+        lift_rate: $(data).number('lift_rate'),
+        judge_ad: $(data).number('judge_ad'),
+        roof: $(data).number('roof'),
+        long_pop: $(data).number('long_pop'),
+        judge: $(data).number('judge'),
+    };
+    const detail = {
+        clear_rank: $(data).number('clear_rank'),
+        cool: $(data).number('cool'),
+        great: $(data).number('great'),
+        good: $(data).number('good'),
+        bad: $(data).number('bad'),
+        combo: $(data).number('combo'),
+        highlight: $(data).number('highlight'),
+        gauge: $(data).number('gauge'),
+        gauge_type: $(data).number('gauge_type'),
+        slow: $(data).number('slow'),
+        fast: $(data).number('fast'),
+        ex_gauge_lv: $(data).number('ex_gauge_lv'),
+        options,
+    };
 
     const key = `${music}:${sheet}`;
 
@@ -274,17 +381,31 @@ const writeScore = async (req: EamuseInfo, data: any, send: EamuseSend): Promise
         scoresData.scores[key] = {
             score,
             cnt: 1,
-            clear_type
+            clear_type,
+            ...detail,
         };
     } else {
+        const isNewBest = score >= scoresData.scores[key].score;
         scoresData.scores[key] = {
+            ...scoresData.scores[key],
             score: Math.max(score, scoresData.scores[key].score),
             cnt: scoresData.scores[key].cnt + 1,
-            clear_type: Math.max(clear_type, scoresData.scores[key].clear_type || 0)
+            clear_type: Math.max(clear_type, scoresData.scores[key].clear_type || 0),
+            // Result details describe the best score, but chart options are
+            // the player's latest selection and must survive every play.
+            ...(isNewBest ? detail : { options }),
         };
     }
 
-    utils.writeScores(refid, version, scoresData);
+    await utils.writeScores(refid, version, scoresData);
+
+    // M39 sets this when the player asks the cabinet to retain the selected
+    // options. Save immediately rather than relying only on player.write.
+    if (version == 'v29' && isOptionSave) {
+        const params = await utils.readParams(refid, version);
+        Object.assign(params.params, options);
+        await utils.writeParams(refid, version, params);
+    }
 
     send.success();
 };
@@ -394,6 +515,12 @@ const getProfile = async (refid: string, version: string, name?: string) => {
     let params = await utils.readParams(refid, version);
     utils.addExtraData(player, params, getExtraData(version));
 
+    // High Cheers adds an empty event container even on a newly-created
+    // profile. The settings themselves are scalar siblings in `config`.
+    if (version == 'v29') {
+        player.event_p29 = {};
+    }
+
     const achievements = <AchievementsUsaneko>await utils.readAchievements(refid, version, { ...defaultAchievements, version });
 
     const profileCharas = achievements.charas || {};
@@ -457,6 +584,7 @@ const getProfile = async (refid: string, version: string, name?: string) => {
         const type = parseInt(keyData[0], 10);
         const id = parseInt(keyData[1], 10);
 
+
         player.item.push({
             type: K.ITEM('u8', type),
             id: K.ITEM('u16', id),
@@ -478,7 +606,7 @@ const getProfile = async (refid: string, version: string, name?: string) => {
         }
     }
 
-    // Usaneko events
+    // Usaneko
     if (version == 'v24') {        
         const date = new Date();
         const currentDate = date.getFullYear() + '-' + date.getMonth() + '-' + date.getDate();
@@ -522,7 +650,7 @@ const getProfile = async (refid: string, version: string, name?: string) => {
         }
     }
 
-    // Kaimei events
+    // Kaimei Riddles
     if (version == 'v26') {
         // Kaimei! MN tanteisha
         player.riddles_data = {
@@ -558,7 +686,7 @@ const getProfile = async (refid: string, version: string, name?: string) => {
         }
     }
 
-    // Unilab events
+    // Unilab
     if (version == 'v27') {
         const teams = achievements.team || [];
         const batteries = achievements.battery || [];
@@ -586,6 +714,57 @@ const getProfile = async (refid: string, version: string, name?: string) => {
         };
     }
 
+    // Jam&Fizz
+    if (version == 'v28') {
+        const orders = achievements.order || [];
+        const lamps = achievements.neon_lamp || [];
+        const stamps = achievements.neko_stamp || [];
+
+        player.event_p28.burger_first_play = K.ITEM('bool', orders.length == 0);
+
+        player.event_p28.order = [];
+        for (const order of orders) {
+            player.event_p28.order.push({
+                id: K.ITEM('s16', order.id || 0),
+                point: K.ITEM('u32', order.point || 0),
+                patties: K.ARRAY('s16', order.patties || Array(40).fill(-1)),
+                is_cleared: K.ITEM('bool', order.is_cleared || false),
+            });
+        };
+
+        player.event_p28.neon_lamp = [];
+        for (const lamp of lamps) {
+            player.event_p28.neon_lamp.push({
+                id: K.ITEM('s16', lamp.id || 0),
+                point: K.ITEM('u32', lamp.point || 0),
+                is_cleared: K.ITEM('bool', lamp.is_cleared || false),
+            });
+        };
+
+        player.event_p28.neko_stamp = [];
+        for (const stamp of stamps) {
+            player.event_p28.neko_stamp.push({
+                id: K.ITEM('s16', stamp.id || 0),
+                point: K.ITEM('u32', stamp.point || 0),
+                is_cleared: K.ITEM('bool', stamp.is_cleared || false),
+            });
+        };
+    }
+
+    // High Cheers: Pop'n Basket event.
+    if (version == 'v29') {
+        const baskets = achievements.baskets || [];
+        player.event_p29.basket_id = K.ITEM('s16', achievements.basket_id || 0);
+        player.event_p29.basket = [];
+        for (const basket of baskets) {
+            player.event_p29.basket.push({
+                id: K.ITEM('s16', basket.id || 0),
+                point: K.ITEM('u32', basket.point || 0),
+                is_cleared: K.ITEM('bool', basket.is_cleared || false),
+            });
+        }
+    }
+
     return player;
 }
 
@@ -604,16 +783,11 @@ const write = async (req: EamuseInfo, data: any, send: EamuseSend): Promise<any>
     utils.getExtraData(data, params, getExtraData(version, true));
 
     // areas
-    let areas = _.get(data, 'area', []);
     if (!achievements.areas) {
         achievements.areas = {};
     }
 
-    if (!_.isArray(areas)) {
-        areas = [areas];
-    }
-
-    for (const area of areas) {
+    for (const area of getNodesAsArray(data, 'area')) {
         const id = $(area).number('area_id');
         const chapter_index = $(area).number('chapter_index');
         const gauge_point = $(area).number('gauge_point');
@@ -629,16 +803,11 @@ const write = async (req: EamuseInfo, data: any, send: EamuseSend): Promise<any>
     }
 
     // courses
-    let courses = _.get(data, 'course_data', []);
     if (!achievements.courses) {
         achievements.courses = {};
     }
 
-    if (!_.isArray(courses)) {
-        courses = [courses];
-    }
-
-    for (const course of courses) {
+    for (const course of getNodesAsArray(data, 'course_data')) {
         const id = $(course).number('course_id');
         const clear_type = $(course).number('clear_type');
         const clear_rank = $(course).number('clear_rank');
@@ -656,16 +825,11 @@ const write = async (req: EamuseInfo, data: any, send: EamuseSend): Promise<any>
     }
 
     // fes
-    let fes = _.get(data, 'fes', []);
     if (!achievements.fes) {
         achievements.fes = {};
     }
 
-    if (!_.isArray(fes)) {
-        fes = [fes];
-    }
-
-    for (const fesElt of fes) {
+    for (const fesElt of getNodesAsArray(data, 'fes')) {
         const id = $(fesElt).number('fes_id');
         const chapter_index = $(fesElt).number('chapter_index');
         const gauge_point = $(fesElt).number('gauge_point');
@@ -679,16 +843,11 @@ const write = async (req: EamuseInfo, data: any, send: EamuseSend): Promise<any>
     }
 
     // items
-    let items = _.get(data, 'item', []);
     if (!achievements.items) {
         achievements.items = {};
     }
 
-    if (!_.isArray(items)) {
-        items = [items];
-    }
-
-    for (const item of items) {
+    for (const item of getNodesAsArray(data, 'item')) {
         const type = $(item).number('type');
         const id = $(item).number('id');
         const param = $(item).number('param');
@@ -699,16 +858,11 @@ const write = async (req: EamuseInfo, data: any, send: EamuseSend): Promise<any>
     }
 
     // charas
-    let charas = _.get(data, 'chara_param', []);
     if (!achievements.charas) {
         achievements.charas = {};
     }
 
-    if (!_.isArray(charas)) {
-        charas = [charas];
-    }
-
-    for (const chara of charas) {
+    for (const chara of getNodesAsArray(data, 'chara_param')) {
         const id = $(chara).number('chara_id');
         const param = $(chara).number('friendship');
 
@@ -716,36 +870,25 @@ const write = async (req: EamuseInfo, data: any, send: EamuseSend): Promise<any>
     }
 
     // stamps
-    let stamps = _.get(data, 'stamp', []);
     if (!achievements.stamps) {
         achievements.stamps = { '0': 0 };
     }
 
-    if (!_.isArray(stamps)) {
-        stamps = [stamps];
-    }
-
-    for (const stamp of stamps) {
+    for (const stamp of getNodesAsArray(data, 'stamp')) {
         const id = $(stamp).number('stamp_id');
         const cnt = $(stamp).number('cnt');
 
         achievements.stamps[id] = cnt;
     }
 
-    // usaneko (v24)
+    // Usaneko
     if (version == 'v24') {
         // Daily missions
         const date = new Date();
         params.params.mission_date = date.getFullYear() + '-' + date.getMonth() + '-' + date.getDate();
 
-        let missions = _.get(data, 'mission', []);
         achievements.missions = {};
-
-        if (!_.isArray(missions)) {
-            missions = [missions];
-        }
-
-        for (const mission of missions) {
+        for (const mission of getNodesAsArray(data, 'mission')) {
             const id = $(mission).number('mission_id');
             const gauge_point = $(mission).number('gauge_point');
             const mission_comp = $(mission).number('mission_comp');
@@ -757,21 +900,16 @@ const write = async (req: EamuseInfo, data: any, send: EamuseSend): Promise<any>
         }
     }
 
-    // riddles (v26)
+    // Kamei Riddles
     if (version == 'v26') {
         const playedRiddle = <number>params.params.sp_riddles_id;
         let riddlesData = _.get(data, 'riddles_data', []);
-        let riddles = _.get(riddlesData, 'sp_riddles', []);
         if (!achievements.riddles) {
             achievements.riddles = {};
         }
 
-        if (!_.isArray(riddles)) {
-            riddles = [riddles];
-        }
-
         let i = 0;
-        for (const riddle of riddles) {
+        for (const riddle of getNodesAsArray(riddlesData, 'sp_riddles')) {
             const kaimei_gauge = $(riddle).number('kaimei_gauge', 0);
             const is_cleared = $(riddle).bool('is_cleared');
             const riddles_cleared = $(riddle).bool('riddles_cleared');
@@ -797,15 +935,14 @@ const write = async (req: EamuseInfo, data: any, send: EamuseSend): Promise<any>
         }
     }
 
-    // Unilab (v27)
+    // Unilab
     if (version == 'v27') {
         let eventData = _.get(data, 'event_p27', []);
-        let team = _.get(eventData, 'team', null);
-        if(_.isPlainObject(team)) {            
-            if (_.isNil(achievements.team)) {
-                achievements.team = [];
-            }
 
+        if (_.isNil(achievements.team)) {
+            achievements.team = [];
+        }
+        for (const team of getNodesAsArray(eventData, 'team')) {
             const team_id = $(team).number('team_id');
             const ex_no = $(team).number('ex_no');
             const point = $(team).number('point');
@@ -825,13 +962,11 @@ const write = async (req: EamuseInfo, data: any, send: EamuseSend): Promise<any>
                 savedTeam.is_cleared = is_cleared;
             }
         }
-        
-        let battery = _.get(eventData, 'battery', null);
-        if(_.isPlainObject(battery)) {            
-            if (_.isNil(achievements.battery)) {
-                achievements.battery = [];
-            }
 
+        if (_.isNil(achievements.battery)) {
+            achievements.battery = [];
+        }
+        for (const battery of getNodesAsArray(eventData, 'battery')) {
             const battery_id = $(battery).number('battery_id');
             const energy = $(battery).number('energy');
             const is_cleared = $(battery).bool('is_cleared');
@@ -846,6 +981,99 @@ const write = async (req: EamuseInfo, data: any, send: EamuseSend): Promise<any>
             } else {
                 savedBattery.energy = energy;
                 savedBattery.is_cleared = is_cleared;
+            }
+        }
+    }
+
+    // Jam&Fizz
+    if (version == 'v28') {
+        let eventData = _.get(data, 'event_p28', []);
+
+        if (_.isNil(achievements.order)) {
+            achievements.order = [];
+        }
+        for (const order of getNodesAsArray(eventData, 'order')) {
+            const id = $(order).number('id');
+            const point = $(order).number('point');
+            const patties = $(order).numbers('patties');
+            const is_cleared = $(order).bool('is_cleared');
+
+            let savedOrder = _.find(achievements.order, {'id': id});
+            if(_.isUndefined(savedOrder)) {
+                achievements.order.push({
+                    id,
+                    point,
+                    patties,
+                    is_cleared
+                });
+            } else {
+                savedOrder.point = point;
+                savedOrder.patties = patties;
+                savedOrder.is_cleared = is_cleared;
+            }
+        }
+
+        if (_.isNil(achievements.neon_lamp)) {
+            achievements.neon_lamp = [];
+        }
+        for (const lamp of getNodesAsArray(eventData, 'neon_lamp')) {
+            const id = $(lamp).number('id');
+            const point = $(lamp).number('point');
+            const is_cleared = $(lamp).bool('is_cleared');
+
+            let savedLamp = _.find(achievements.neon_lamp, {'id': id});
+            if(_.isUndefined(savedLamp)) {
+                achievements.neon_lamp.push({
+                    id,
+                    point,
+                    is_cleared
+                });
+            } else {
+                savedLamp.point = point;
+                savedLamp.is_cleared = is_cleared;
+            }
+        }
+
+        if (_.isNil(achievements.neko_stamp)) {
+            achievements.neko_stamp = [];
+        }
+        for (const stamp of getNodesAsArray(eventData, 'neko_stamp')) {
+            const id = $(stamp).number('id');
+            const point = $(stamp).number('point');
+            const is_cleared = $(stamp).bool('is_cleared');
+
+            let savedStamp = _.find(achievements.neko_stamp, {'id': id});
+            if(_.isUndefined(savedStamp)) {
+                achievements.neko_stamp.push({
+                    id,
+                    point,
+                    is_cleared
+                });
+            } else {
+                savedStamp.point = point;
+                savedStamp.is_cleared = is_cleared;
+            }
+        }
+    }
+
+    // High Cheers: Pop'n Basket event.
+    if (version == 'v29') {
+        const eventData = _.get(data, 'event_p29', []);
+        achievements.basket_id = $(eventData).number('basket_id', achievements.basket_id || 0);
+
+        if (_.isNil(achievements.baskets)) {
+            achievements.baskets = [];
+        }
+        for (const basket of getNodesAsArray(eventData, 'basket')) {
+            const id = $(basket).number('id');
+            const point = $(basket).number('point');
+            const is_cleared = $(basket).bool('is_cleared');
+            const savedBasket = _.find(achievements.baskets, { id });
+            if (_.isUndefined(savedBasket)) {
+                achievements.baskets.push({ id, point, is_cleared });
+            } else {
+                savedBasket.point = point;
+                savedBasket.is_cleared = is_cleared;
             }
         }
     }
@@ -887,12 +1115,16 @@ const friend = async (req: EamuseInfo, data: any, send: EamuseSend): Promise<any
 
     send.object(friend);
 }
-
 const getPhase = (version: String): Phase[] => {
     let phase = [];
     switch(version) {
+        // High Cheers currently reuses the established phase table. Its
+        // profile/event data is deliberately kept separate from Jam&Fiz.
+        case 'v29':
+        case 'v28':
+            phase = PHASE['v28'];
         case 'v27':
-            phase = PHASE['v27'];
+            phase = _.unionBy(phase, PHASE['v27'], 'id');
             break;
         case 'v26':
             phase = PHASE['v26'];
@@ -905,11 +1137,19 @@ const getPhase = (version: String): Phase[] => {
 }
 
 const getExtraData = (version: String, full: boolean = false): ExtraData => {
-    let extraData = EXTRA_DATA_COMMON;
+    // _.merge mutates its first argument. Use a new object so loading a newer
+    // profile cannot accidentally inherit an older game's event_p28 fields.
+    let extraData = _.cloneDeep(EXTRA_DATA_COMMON);
     if (full) {
-        extraData = _.merge(extraData, EXTRA_DATA_V27, EXTRA_DATA_V26);
+        extraData = _.merge(extraData, EXTRA_DATA_V29, EXTRA_DATA_V28, EXTRA_DATA_V27, EXTRA_DATA_V26);
     } else {
         switch(version) {
+            case 'v29':
+                extraData = _.merge(extraData, EXTRA_DATA_V29);
+                break;
+            case 'v28':
+                extraData = _.merge(extraData, EXTRA_DATA_V28);
+                break;
             case 'v27':
                 extraData = _.merge(extraData, EXTRA_DATA_V27);
                 break;
@@ -921,17 +1161,36 @@ const getExtraData = (version: String, full: boolean = false): ExtraData => {
     return extraData;
 }
 
+const getNodesAsArray = (data: any, nodeName: string): any[] => {
+    let elements = _.get(data, nodeName, []);
+    if (!_.isArray(elements)) {
+        elements = [elements];
+    }
+
+    return elements;
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 let isOmni = false;
 
 const getVersion = (req: EamuseInfo): string => {
-    if (req.model.indexOf('J:A:X') >= 0 || req.model.indexOf('J:B:X') >= 0 || req.model.indexOf('J:C:X') >= 0) {
+    if (req.model.indexOf('J:A:X') >= 0 || req.model.indexOf('J:B:X') >= 0 || req.model.indexOf('J:C:X') >= 0|| req.model.indexOf('J:D:X') >= 0) {
         isOmni = true;
     }
 
+    // M39 is pop'n music High Cheers. It uses the new `player.*` protocol and
+    // must not receive the Jam&Fiz event_p28 profile structure.
+    if (req.model.startsWith('M39:')) {
+        return 'v29';
+    }
+
     const date: number = parseInt(req.model.match(/:(\d*)$/)[1]);
-    if (date >= 2022091300) {
+    if (date >= 2025121500) {
+        return 'v29';
+    }else if (date >= 2024092500) {
+        return 'v28';
+    } else if (date >= 2022091300 && date < 2024092500) {
         return 'v27';
     } else if (date >= 2021042600 && date < 2022091300) {
         return 'v26';
@@ -946,14 +1205,19 @@ const GAME_MAX_MUSIC_ID = {
     v24: 1704,
     v25: 1877,
     v26: 2019,
-    v27: 2188
+    v27: 2188,
+    v28: 2259,
+    // Confirmed from M39's built-in Music Checker.
+    v29: 2373
 }
 
 const GAME_MAX_DECO_ID = {
     v24: 97,
     v25: 133,
     v26: 133,
-    v27: 81
+    v27: 81,
+    v28: 81, // Need correct value
+    v29: 81 // Need correct value
 }
 
 const defaultAchievements: AchievementsUsaneko = {
@@ -968,7 +1232,12 @@ const defaultAchievements: AchievementsUsaneko = {
     riddles: {},
     missions: {},
     team: [],
-    battery: []
+    battery: [],
+    order: [],
+    neon_lamp: [],
+    neko_stamp: [],
+    basket_id: 0,
+    baskets: []
 }
 
 const PHASE = {
@@ -1015,19 +1284,29 @@ const PHASE = {
     ],
     v27: [
         { id: 0, p: 6 },  // Music phase (0: No unlock, 1-6: steps)
-        { id: 1, p: 6 },  // Shutchou! pop'n quest Lively II (0: not started, 1-5: steps, 6: ended)
+        { id: 1, p: 6 },  // Permanent song unlocks (0-6)
         { id: 2, p: 4 },  // KAC 2023 (0/2/4: disabled, 1: Caldwell 99, 3: Hexer / mathematical good-bye)
         { id: 3, p: 0 },  // Net Taisen (0: diabled, 1: enabled, 2: enabled + local)
-        { id: 4, p: 7 },  // Unknown event (0-7)
+        { id: 4, p: 7 },  // Paseli Festival Attract mode ads (1/5/7: disabled, others : show specific ad)
         { id: 5, p: 48 }, // Narunaru♪ UniLab jikkenshitsu! event (0: not started, 1-47: steps, 48: ended)
         { id: 6, p: 2 },  // Super Unilab BOOST! (0: disabled, 1: enabled, 2: ended)
-        { id: 7, p: 6 },  // Unknown event (0-6)
-        { id: 8, p: 2 },  // Unknown event (0-2)
+        { id: 7, p: 6 },  // Shutchou! pop'n quest Lively II ~nostalgia~ (0: disabled, 1-5: steps, 6: ended)
+        { id: 8, p: 2 },  // Attract mode ad campaign (0: disabled, 1: enabled, 2: ended)
         { id: 9, p: 44 }, // Kakusei no Elem event (0: not started, 1-44: steps)
         { id: 10, p: 1 }, // Awakening Elem (0: disabled, 1: enabled)
         { id: 11, p: 2 }, // CanCan's Super Awakening Boost (0: disabled, 1: enabled, 2: ended)
-        { id: 12, p: 2 }, // Unknown event (0-2)
+        { id: 12, p: 2 }, // BEMANI Pro League 3 ad in attract mode (0: disabled, 1: enabled, 2: ended)
         { id: 13, p: 2 }, // Unknown event (0-2)
+    ],
+    v28: [
+        { id: 0, p: 12 },  // Music phase (0: No unlock, 1-12: steps)
+        { id: 1, p: 9 },   // Permanent song unlocks (0-9)
+        { id: 4, p: 9 },   // Paseli Festival Attract mode ads (1/5/7/9: disabled, others : show specific ad)
+        { id: 14, p: 4 },  // Unknown event (0-4)
+        { id: 15, p: 33 }, // Poppin' Burger (0: disabled, 1-33: steps)
+        { id: 16, p: 2 },  // Unknown event (0-2)
+        { id: 17, p: 1 },  // Unknown event (0-1)
+        { id: 18, p: 3 },  // Unknown event (0-3)
     ]
 }
 
@@ -1064,14 +1343,14 @@ const EXTRA_DATA_COMMON: ExtraData = {
     category: { type: 's8', path: 'config', default: 0 },
     sub_category: { type: 's8', path: 'config', default: 0 },
     chara_category: { type: 's8', path: 'config', default: 0 },
+    course_id: { type: 's16', path: 'config', default: 0 },
+    course_folder: { type: 's8', path: 'config', default: 0 },
     ms_banner_disp: { type: 's8', path: 'config', default: 0 },
     ms_down_info: { type: 's8', path: 'config', default: 0 },
     ms_side_info: { type: 's8', path: 'config', default: 0 },
     ms_raise_type: { type: 's8', path: 'config', default: 0 },
     ms_rnd_type: { type: 's8', path: 'config', default: 0 },
     banner_sort: { type: 's8', path: 'config', default: 0 },
-    course_id: { type: 's16', path: 'config', default: 0 },
-    course_folder: { type: 's8', path: 'config', default: 0 },
 
     hispeed: { type: 's16', path: 'option', default: 10 },
     popkun: { type: 'u8', path: 'option', default: 0 },
@@ -1086,8 +1365,8 @@ const EXTRA_DATA_COMMON: ExtraData = {
     forever_0: { type: 'bool', path: 'option', default: 0 },
     forever_1: { type: 'bool', path: 'option', default: 0 },
     full_setting: { type: 'bool', path: 'option', default: 0 },
-    guide_se: { type: 's8', path: 'option', default: 0 },
     judge: { type: 'u8', path: 'option', default: 0 },
+    guide_se: { type: 's8', path: 'option', default: 0 },
 
     ep: { type: 'u16', path: 'info', default: 0 },
 
@@ -1115,4 +1394,50 @@ const EXTRA_DATA_V27: ExtraData = {
     team_id: { type: 's16', path: 'event_p27', default: 0 },
     select_battery_id: { type: 's16', path: 'event_p27', default: 1 },
     today_first_play: { type: 'bool', path: 'event_p27', default: 1 },
+}
+
+const EXTRA_DATA_V28: ExtraData = {
+    sc_news_no: { type: 's32', path: 'account', default: 0 },
+    guide_se_vol: { type: 'u8', path: 'option', default: 0 },
+    lift: { type: 'bool', path: 'option', default: 0 },
+    lift_rate: { type: 's16', path: 'option', default: 0 },
+    burger_daily_bonus: { type: 'bool', path: 'event_p28', default: true },
+    current_order: { type: 's16', path: 'event_p28', default: Array(3).fill(-1), isArray: true },
+    neko_daily_bonus: { type: 'bool', path: 'event_p28', default: true },
+}
+
+// Fields observed in High Cheers (M39) player.write requests.
+const EXTRA_DATA_V29: ExtraData = {
+    // Carried forward settings which M39 still requires, excluding the
+    // Jam&Fiz-only event_p28 data.
+    sc_news_no: { type: 's32', path: 'account', default: 0 },
+    latest_music: { type: 's16', path: 'account', default: Array(30).fill(-1), isArray: true },
+    popn_class: { type: 's8', path: 'account', default: 1 },
+    read_policy: { type: 's16', path: 'account', default: 0 },
+    language: { type: 's8', path: 'account', default: -1 },
+    guide_se_vol: { type: 'u8', path: 'option', default: 3 },
+    lift: { type: 'bool', path: 'option', default: 0 },
+    lift_rate: { type: 's16', path: 'option', default: 0 },
+    disp_setting: { type: 's8', path: 'config', default: 0 },
+    h_vol: { type: 's8', path: 'config', default: 1 },
+    hiscore_disp: { type: 'bool', path: 'config', default: 0 },
+    lane_type: { type: 's8', path: 'config', default: 0 },
+    brightness: { type: 's8', path: 'config', default: 32 },
+    key_beam: { type: 's8', path: 'config', default: 5 },
+    lane_line: { type: 's8', path: 'config', default: 1 },
+    judge_ad: { type: 's8', path: 'option', default: 0 },
+    roof: { type: 's16', path: 'option', default: 0 },
+    long_pop: { type: 's8', path: 'option', default: 1 },
+    seal_0: { type: 'u16', path: 'customize', default: 0 },
+    seal_1: { type: 'u16', path: 'customize', default: 0 },
+    seal_2: { type: 'u16', path: 'customize', default: 0 },
+    seal_3: { type: 'u16', path: 'customize', default: 0 },
+    seal_4: { type: 'u16', path: 'customize', default: 0 },
+    seal_5: { type: 'u16', path: 'customize', default: 0 },
+    seal_6: { type: 'u16', path: 'customize', default: 0 },
+    seat: { type: 'u16', path: 'customize', default: 0 },
+    touch_th: { type: 'u16', path: 'customize', default: 0 },
+    lane_cover: { type: 'u16', path: 'customize', default: 0 },
+    stage_bk: { type: 'u16', path: 'customize', default: 0 },
+    highlight: { type: 'u16', path: 'customize', default: 0 },
 }
